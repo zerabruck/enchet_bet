@@ -1,5 +1,5 @@
 const enchetPost=require('../model/enchet_post');
-
+const cloudinary=require('../config/cloudinary')
 
 const getallpost=async(req,res)=>{
     const posts=await enchetPost.find()
@@ -8,22 +8,31 @@ const getallpost=async(req,res)=>{
     res.json(posts)
 
 }
-
+//information name address contact label price avatar cloudinary_id customer_id
 const createpost=async(req,res)=>{
     const body=req.body
-    if(!body||!body?.information|| !body?.price||!body?.photo ||!body?.customer_id ){
-        res.status(401).json({"message":"additional information about the post is required"})
+
+    console.log(body)
+    if(!body||!body?.information|| !body?.price||!req?.file?.path ||!body?.customer_id||!body?.address||!body?.name||!body?.contact||!body?.address ){
+        console.log(body)
+        res.status(404).json({"message":"additional information about the post is required"})
     }
 
     try{
-        const result=await enchetPost.create({
+        const result=await cloudinary.uploader.upload(req.file.path)
+        const resultt=await enchetPost.create({
             information:body.information,
             price:body.price,
+            name:body.name,
+            address:body.address,
+            label:body.label,
+            contact:body.contact,
             customer_id:body.customer_id,
-            photo:body.photo
+            avatar:result.secure_url,
+            cloudinary_id:result.public_id
         })
     
-        res.status(200).json(result)
+        res.status(200).json(resultt)
 
     }catch(err){
         console.log(err)
@@ -33,6 +42,7 @@ const createpost=async(req,res)=>{
 
 const updatepost=async(req,res)=>{
     const body=req.body
+    console.log(body)
     if(!body||!body.id) {
         res.status(404).json({"message":"id is required to update post"})
     }
@@ -42,15 +52,26 @@ const updatepost=async(req,res)=>{
         res.status(404).json({'message':"no post was made by the id"})
     }
 
-
-    const information=req.body.information||result.information
-    const price=req.body.price || result.price
-    const photo=req.body.photo || result.photo
-    result.information=information
-    result.price=price
-    result.photo=photo
+    if(req?.file?.path){
+        await cloudinary.uploader.destroy(result.cloudinary_id)
+        const photo_result=await cloudinary.uploader.upload(req.file.path)
+    const avatar=photo_result.secure_url 
+    const cloudinary_id=photo_result.public_id
 
 
+    result.avatar=avatar
+    result.cloudinary_id=cloudinary_id
+
+
+    }
+    
+
+    result.information=req.body.information||result.information
+    result.price=req.body.price || result.price
+    result.name=req.body.name || result.name
+    result.address=req.body.address || result.address
+    result.contact=req.body.contact || result.contact
+    result.label=req.body.label || result.label 
     const saved=await result.save()
 
     res.status(200).json(saved)
@@ -77,13 +98,18 @@ const deletepost=async(req,res)=>{
         res.status(404).json({"message":"id is required"})
     }
 
-    const result=await enchetPost.deleteOne({_id:req.body.id})
+    try{
+        const user=await enchetPost.findById({_id:req.body.id})
+        if(!user){
+            res.status(404).json({"message":`there was no post by the id: ${req.body.id}`})
+        }
 
-    if(!result){
-        res.status(404).json({"message":`there was no post by the id: ${req.body.id}`})
+    await cloudinary.uploader.destroy(user.cloudinary_id)
+    await user.remove()
+    res.status(200).json(user)
+    }catch(e){
+        console.log(e)
     }
-
-    res.status(200).json(result)
     
 }
 

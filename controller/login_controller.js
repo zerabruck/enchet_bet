@@ -33,7 +33,7 @@ const login_contoller=async(req,res)=>{
 
     res.cookie('jwt',refreshtoken,{httpOnly:true,samesite:'None',maxage:24*60*60*1000})
 
-    res.json({"accesstoken":accesstoken})
+    res.json({"accesstoken":accesstoken,"role":user.role.User})
 
     }
     catch(err){
